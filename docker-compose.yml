@@ -1,0 +1,53 @@
+version: '3.8'
+
+services:
+  n8n:
+    image: n8n/n8n:latest # ใช้ n8n เวอร์ชันล่าสุด
+    container_name: n8n
+    restart: unless-stopped
+    ports:
+      - "5678:5678" # แมปพอร์ต 5678 ของโฮสต์ไปที่พอร์ต 5678 ของ n8n
+    environment:
+      # ดึงค่าจากไฟล์ .env
+      - TZ=${TZ}
+      - DB_TYPE=postgresdb
+      - DB_POSTGRESDB_HOST=postgres
+      - DB_POSTGRESDB_PORT=5432
+      - DB_POSTGRESDB_DATABASE=${POSTGRES_DB}
+      - DB_POSTGRESDB_USER=${POSTGRES_USER}
+      - DB_POSTGRESDB_PASSWORD=${POSTGRES_PASSWORD}
+      - N8N_PORT=${N8N_PORT}
+      - N8N_PROTOCOL=${N8N_PROTOCOL}
+      # N8N_HOST และ WEBHOOK_URL:
+      # - ถ้าคุณรันบนเครื่องตัวเอง (localhost):
+      - N8N_HOST=localhost
+      - WEBHOOK_URL=http://localhost:${N8N_PORT}/
+      # - ถ้าคุณรันบนเซิร์ฟเวอร์และต้องการให้เข้าถึงจาก IP address:
+      # - N8N_HOST=YOUR_SERVER_IP_ADDRESS # **เปลี่ยนเป็น IP ของเซิร์ฟเวอร์ของคุณ**
+      # - WEBHOOK_URL=http://YOUR_SERVER_IP_ADDRESS:${N8N_PORT}/
+      - NODE_ENV=production # รันในโหมด production
+      # - N8N_BASIC_AUTH_ACTIVE=true # หากต้องการ Basic Auth
+      # - N8N_BASIC_AUTH_USER=admin
+      # - N8N_BASIC_AUTH_PASSWORD=your_admin_password
+    volumes:
+      - ./data/n8n:/home/node/.n8n # เก็บข้อมูล n8n ไว้ในโฟลเดอร์ data/n8n
+    networks:
+      - n8n_internal_network # n8n เชื่อมต่อกับ Postgres ผ่านเครือข่ายภายในนี้
+
+  postgres:
+    image: postgres:15-alpine # ใช้ PostgreSQL เวอร์ชัน 15
+    container_name: postgres
+    restart: unless-stopped
+    environment:
+      - POSTGRES_DB=${POSTGRES_DB}
+      - POSTGRES_USER=${POSTGRES_USER}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
+      - TZ=${TZ}
+    volumes:
+      - ./data/postgres:/var/lib/postgresql/data # เก็บข้อมูล Postgres ไว้ใน data/postgres
+    networks:
+      - n8n_internal_network # Postgres อยู่ในเครือข่ายภายในกับ n8n เท่านั้น
+
+networks:
+  n8n_internal_network: # เครือข่ายสำหรับ n8n และ Postgres เพื่อการสื่อสารภายใน
+    driver: bridge
